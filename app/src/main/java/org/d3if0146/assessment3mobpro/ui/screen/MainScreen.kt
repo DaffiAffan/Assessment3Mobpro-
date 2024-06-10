@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -40,7 +39,6 @@ import coil.request.ImageRequest
 import org.d3if0146.assessment3mobpro.R
 import org.d3if0146.assessment3mobpro.model.Motor
 import org.d3if0146.assessment3mobpro.network.ApiStatus
-import org.d3if0146.assessment3mobpro.network.MotorApi
 import org.d3if0146.assessment3mobpro.ui.theme.Assessment3MobProTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,12 +69,12 @@ fun ScreenContent(modifier: Modifier) {
 
     when (status) {
         ApiStatus.LOADING -> {
-           Box(
-               modifier = Modifier.fillMaxSize(),
-               contentAlignment = Alignment.Center
-           ){
-//               CircularProgressIndicator()  error nggak jelas
-           }
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+//                CircularProgressIndicator() //Error di sini
+            }
         }
 
         ApiStatus.SUCCESS -> {
@@ -87,6 +85,22 @@ fun ScreenContent(modifier: Modifier) {
                 columns = GridCells.Fixed(2),
             ) {
                 items(data) { ListItem(motor = it) }
+            }
+        }
+        ApiStatus.FAILED -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = stringResource(id = R.string.error))
+                Button(
+                    onClick = { viewModel.retrieveData() },
+                    modifier = Modifier.padding(top = 16.dp),
+                    contentPadding = PaddingValues(horizontal=32.dp, vertical=16.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.try_again))
+                }
             }
         }
     }
