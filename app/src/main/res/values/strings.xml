@@ -6,4 +6,10 @@
     <string name="profil">Profil</string>
     <string name="tutup">Tutup</string>
     <string name="logout">Logout</string>
+    <string name="tambah_motor">Tambah Motor</string>
+
+    <string name="merek">Merek</string>
+    <string name="model">Model</string>
+    <string name="batal">Batal</string>
+    <string name="simpan">Simpan</string>
 </resources>

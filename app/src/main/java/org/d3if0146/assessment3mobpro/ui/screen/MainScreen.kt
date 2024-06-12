@@ -1,8 +1,15 @@
 package org.d3if0146.assessment3mobpro.ui.screen
 
+import android.content.ContentResolver
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.os.Build
+import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,12 +32,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -38,9 +49,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.ClearCredentialStateRequest
@@ -51,6 +64,10 @@ import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -63,6 +80,7 @@ import org.d3if0146.assessment3mobpro.R
 import org.d3if0146.assessment3mobpro.model.Motor
 import org.d3if0146.assessment3mobpro.model.User
 import org.d3if0146.assessment3mobpro.network.ApiStatus
+import org.d3if0146.assessment3mobpro.network.MotorApi
 import org.d3if0146.assessment3mobpro.network.UserDataStore
 import org.d3if0146.assessment3mobpro.ui.theme.Assessment3MobProTheme
 
@@ -72,7 +90,16 @@ fun MainScreen() {
     val context = LocalContext.current
     val dataStore = UserDataStore(context)
     val user by dataStore.userFlow.collectAsState(User())
+    val viewModel: MainViewModel = viewModel()
+    val errorMessage by viewModel.errorMessage
     var showDialog by remember { mutableStateOf(false) }
+    var showMotorDialog by remember { mutableStateOf(false) }
+    var bitmap: Bitmap? by remember { mutableStateOf(null) }
+    val launcher = rememberLauncherForActivityResult(CropImageContract()) {
+        bitmap = getCroppedImage(context.contentResolver, it)
+        if (bitmap != null) showMotorDialog = true
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -99,9 +126,26 @@ fun MainScreen() {
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                val options = CropImageContractOptions(
+                    null, CropImageOptions(
+                        imageSourceIncludeGallery = false,
+                        imageSourceIncludeCamera = true,
+                        fixAspectRatio = true
+                    )
+                )
+                launcher.launch(options)
+            }) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(id = R.string.tambah_motor)
+                )
+            }
         }
     ) { padding ->
-        ScreenContent(Modifier.padding(padding))
+        ScreenContent(viewModel, user.email, Modifier.padding(padding))
 
         if (showDialog) {
             ProfilDialog(
@@ -111,14 +155,29 @@ fun MainScreen() {
                 showDialog = false
             }
         }
+        if (showMotorDialog) {
+            MotorDialog(
+                bitmap = bitmap,
+                onDismissRequest = { showMotorDialog = false }) { merek, model ->
+                viewModel.saveData(user.email, merek, model, bitmap!!)
+                showMotorDialog = false
+            }
+        }
+        if (errorMessage != null) {
+            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+            viewModel.clearMessage()
+        }
     }
 }
 
 @Composable
-fun ScreenContent(modifier: Modifier) {
-    val viewModel: MainViewModel = viewModel()
+fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
+
+    LaunchedEffect(userId) {
+        viewModel.retrieveData(userId)
+    }
 
     when (status) {
         ApiStatus.LOADING -> {
@@ -136,6 +195,7 @@ fun ScreenContent(modifier: Modifier) {
                     .fillMaxSize()
                     .padding(4.dp),
                 columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 items(data) { ListItem(motor = it) }
             }
@@ -149,7 +209,7 @@ fun ScreenContent(modifier: Modifier) {
             ) {
                 Text(text = stringResource(id = R.string.error))
                 Button(
-                    onClick = { viewModel.retrieveData() },
+                    onClick = { viewModel.retrieveData(userId) },
                     modifier = Modifier.padding(top = 16.dp),
                     contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
                 ) {
@@ -170,12 +230,10 @@ fun ListItem(motor: Motor) {
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-//                .data(MotorApi.getMotorUrl(motor.imageId))
-                .data(motor.url)
+                .data(MotorApi.getMotorUrl(motor.imageId))
                 .crossfade(true)
                 .build(),
-//            contentDescription = stringResource(R.string.gambar, motor.merek),
-            contentDescription = stringResource(R.string.gambar, motor.id),
+            contentDescription = stringResource(R.string.gambar, motor.merek ?: ""),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
             error = painterResource(id = R.drawable.baseline_broken_image_24),
@@ -191,17 +249,16 @@ fun ListItem(motor: Motor) {
                 .padding(4.dp)
         ) {
             Text(
-//                text = motor.merek,
-                text = motor.id,
+                text = motor.merek ?: "",
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
-//            Text(
-//                text = motor.merek,
-//                fontStyle = FontStyle.Italic,
-//                fontSize = 14.sp,
-//                color = Color.White
-//            )
+            Text(
+                text = motor.model ?: "",
+                fontStyle = FontStyle.Italic,
+                fontSize = 14.sp,
+                color = Color.White
+            )
         }
     }
 }
@@ -232,10 +289,10 @@ private suspend fun handleSignIn(result: GetCredentialResponse, dataStore: UserD
     ) {
         try {
             val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data)
-            val nama = googleIdToken.displayName ?: ""
+            val merek = googleIdToken.displayName ?: ""
             val email = googleIdToken.id
             val photoUrl = googleIdToken.profilePictureUri.toString()
-            dataStore.saveData(User(nama, email, photoUrl))
+            dataStore.saveData(User(merek, email, photoUrl))
         } catch (e: GoogleIdTokenParsingException) {
             Log.e("SIGN-IN", "Error: ${e.message}")
         }
@@ -253,6 +310,25 @@ private suspend fun signOut(context: Context, dataStore: UserDataStore) {
         dataStore.saveData(User())
     } catch (e: ClearCredentialException) {
         Log.e("SIGN-IN", "Error: ${e.errorMessage}")
+    }
+}
+
+private fun getCroppedImage(
+    resolver: ContentResolver,
+    result: CropImageView.CropResult
+): Bitmap? {
+    if (!result.isSuccessful) {
+        Log.e("IMAGE", "Error: ${result.error}")
+        return null
+    }
+
+    val uri = result.uriContent ?: return null
+
+    return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+        MediaStore.Images.Media.getBitmap(resolver, uri)
+    } else {
+        val source = ImageDecoder.createSource(resolver, uri)
+        ImageDecoder.decodeBitmap(source)
     }
 }
 
