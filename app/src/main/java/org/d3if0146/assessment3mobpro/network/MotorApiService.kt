@@ -14,6 +14,9 @@ import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
+import retrofit2.http.DELETE
+import retrofit2.http.Query
+import retrofit2.http.Path
 
 
 private const val BASE_URL = "https://4602myproductapi.000webhostapp.com"
@@ -40,6 +43,12 @@ interface MotorApiService {
         @Part("brand") merek: RequestBody,
         @Part("category") model: RequestBody,
         @Part image: MultipartBody.Part
+    ): OpStatus
+    @GET("/6706220146/product/delete/{id}")
+    suspend fun deleteMotor(
+        @Header("Authorization") userId: String,
+//        @Query("id") id: String
+        @Path("id") id: String
     ): OpStatus
 }
 

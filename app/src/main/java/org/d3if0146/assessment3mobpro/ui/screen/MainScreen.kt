@@ -9,6 +9,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.layout.Row
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -197,7 +198,11 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier) 
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(data) { ListItem(motor = it) }
+                items(data) {
+                    ListItem(motor = it) {
+                        viewModel.deleteMotor(userId, it.id)
+                    }
+                }
             }
         }
 
@@ -221,7 +226,8 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier) 
 }
 
 @Composable
-fun ListItem(motor: Motor) {
+fun ListItem(motor: Motor,delete: () -> Unit) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .padding(4.dp)
@@ -260,7 +266,30 @@ fun ListItem(motor: Motor) {
                 color = Color.White
             )
         }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(
+                        tint = Color.White,
+                        painter = painterResource(R.drawable.baseline_delete_24),
+                        contentDescription = stringResource(R.string.profil)
+                    )
+                }
+            }
     }
+    DeleteDialog(
+        openDialog = showDeleteDialog,
+        onDismissRequest = { showDeleteDialog = false }
+    ) {
+        delete()
+        showDeleteDialog = false
+    }
+
 }
 
 private suspend fun signIn(context: Context, dataStore: UserDataStore) {
