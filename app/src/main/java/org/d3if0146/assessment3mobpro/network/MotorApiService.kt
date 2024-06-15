@@ -1,6 +1,5 @@
 package org.d3if0146.assessment3mobpro.network
 
-import android.util.Log
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.MultipartBody
@@ -14,8 +13,6 @@ import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
-import retrofit2.http.DELETE
-import retrofit2.http.Query
 import retrofit2.http.Path
 
 
@@ -47,7 +44,6 @@ interface MotorApiService {
     @GET("/6706220146/product/delete/{id}")
     suspend fun deleteMotor(
         @Header("Authorization") userId: String,
-//        @Query("id") id: String
         @Path("id") id: String
     ): OpStatus
 }

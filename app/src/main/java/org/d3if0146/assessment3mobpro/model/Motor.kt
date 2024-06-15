@@ -10,7 +10,6 @@ data class Motor(
     @Json(name = "category") val model: String?,
     @Json(name = "image") val imageId: String,
     @Json(name = "id") val id:String,
-//    val mine: Int
 )
 @JsonClass(generateAdapter = true)
-data class PhoneList(val products: List<Motor>)
+data class MotorList(val products: List<Motor>)
